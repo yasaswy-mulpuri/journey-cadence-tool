@@ -388,7 +388,7 @@ app.get('/business', (req, res) => {
 
 // Start server
 initDb().then(() => {
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
         console.log(`Journey Cadence Tool running at http://localhost:${PORT}`);
         console.log(`  Developer View: http://localhost:${PORT}/`);
         console.log(`  Business View:  http://localhost:${PORT}/business`);
