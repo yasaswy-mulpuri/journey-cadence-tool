@@ -1,0 +1,4 @@
+node_modules/
+cadence.db
+*.log
+.env

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journey Cadence - Business View</title>
+    <style>
+        :root {
+            --primary: #f26322;
+            --primary-dark: #d4541a;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text: #2d3748;
+            --text-light: #718096;
+            --border: #e2e8f0;
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #e53e3e;
+            --info: #4299e1;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 1.5rem; }
+        .container { max-width: 100%; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        header h1 { font-size: 1.5rem; }
+        header .subtitle { color: var(--text-light); font-size: 0.9rem; }
+        header nav a { margin-left: 1rem; color: var(--info); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        header nav a:hover { text-decoration: underline; }
+        .card { background: var(--card-bg); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid var(--border); }
+        .card h2 { font-size: 1rem; margin-bottom: 0.75rem; }
+        .filter-bar { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
+        .filter-group { display: flex; flex-direction: column; }
+        .filter-group label { font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem; }
+        .filter-group input, .filter-group select { padding: 0.45rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; outline: none; min-width: 140px; }
+        .filter-group input:focus, .filter-group select:focus { border-color: var(--primary); }
+        .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-secondary { background: #edf2f7; color: var(--text); }
+        .btn-secondary:hover { background: #e2e8f0; }
+
+        /* Summary cards */
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+        .summary-card { background: #f7fafc; border-radius: 8px; padding: 0.75rem 1rem; text-align: center; border: 1px solid var(--border); }
+        .summary-card .value { font-size: 1.4rem; font-weight: 700; color: var(--primary); }
+        .summary-card .label { font-size: 0.72rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Calendar grid */
+        .calendar-container { overflow-x: auto; margin-top: 1rem; }
+        .calendar-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+        .calendar-table th, .calendar-table td { padding: 0.4rem 0.5rem; border: 1px solid var(--border); text-align: center; white-space: nowrap; }
+        .calendar-table th { background: #f7fafc; font-weight: 600; position: sticky; top: 0; z-index: 2; }
+        .calendar-table th.date-header { font-size: 0.7rem; min-width: 70px; }
+        .calendar-table th.date-header .day-name { font-weight: 400; color: var(--text-light); }
+        .calendar-table td.journey-name { text-align: left; font-weight: 600; white-space: nowrap; position: sticky; left: 0; background: white; z-index: 1; min-width: 180px; border-right: 2px solid var(--border); }
+        .calendar-table td.email-name { text-align: left; padding-left: 1.2rem; font-size: 0.73rem; color: var(--text-light); position: sticky; left: 0; background: white; z-index: 1; min-width: 180px; border-right: 2px solid var(--border); }
+        .calendar-table tr.journey-header td { background: #f7fafc; font-weight: 600; }
+        .calendar-table tr.totals-row td { background: #edf2f7; font-weight: 700; border-top: 2px solid var(--text); }
+        .calendar-table tr.totals-row td.journey-name { font-size: 0.8rem; }
+        .calendar-table tr.sub-total td { background: #f0fff4; font-weight: 600; font-size: 0.74rem; }
+        .calendar-table td.has-volume { background: #f0fff4; }
+        .calendar-table td.high-volume { background: #fefcbf; color: #975a16; font-weight: 600; }
+        .calendar-table td.weekend-col { background: #fff5f5; }
+
+        .badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 10px; font-size: 0.68rem; font-weight: 600; }
+        .badge-active { background: #c6f6d5; color: #276749; }
+        .badge-paused { background: #fefcbf; color: #975a16; }
+        .badge-stopped { background: #fed7d7; color: #9b2c2c; }
+
+        .no-data { text-align: center; padding: 3rem; color: var(--text-light); font-size: 1rem; }
+        .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #2d3748; color: white; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.85rem; opacity: 0; transform: translateY(10px); transition: all 0.3s; z-index: 1000; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+
+        @media (max-width: 768px) { .filter-bar { flex-direction: column; align-items: stretch; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>Journey Cadence - Business View</h1>
+                <div class="subtitle">Daily email volume visibility across journeys and campaigns</div>
+            </div>
+            <nav>
+                <a href="/">&larr; Developer View</a>
+            </nav>
+        </header>
+
+        <!-- Filters -->
+        <div class="card">
+            <h2>&#128269; Filters</h2>
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label>Campaign ID</label>
+                    <select id="filterCampaign">
+                        <option value="">All Campaigns</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Country</label>
+                    <select id="filterCountry">
+                        <option value="">All Countries</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Start Date</label>
+                    <input type="date" id="filterStartDate">
+                </div>
+                <div class="filter-group">
+                    <label>End Date</label>
+                    <input type="date" id="filterEndDate">
+                </div>
+                <button class="btn btn-primary" onclick="loadCalendar()">View Calendar</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="card" id="summarySection" style="display:none;">
+            <div class="summary-grid" id="summaryGrid"></div>
+        </div>
+
+        <!-- Calendar Grid -->
+        <div class="card" id="calendarSection" style="display:none;">
+            <h2>&#128197; Daily Volume Calendar</h2>
+            <div class="calendar-container" id="calendarContainer">
+                <div class="no-data">Select filters and click "View Calendar" to see volumes</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    const API = '';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadFilterOptions();
+        // Set default date range: current month
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+        document.getElementById('filterStartDate').value = formatDate(start);
+        document.getElementById('filterEndDate').value = formatDate(end);
+    });
+
+    async function loadFilterOptions() {
+        try {
+            const [campaigns, countries] = await Promise.all([
+                fetch(`${API}/api/campaigns`).then(r => r.json()),
+                fetch(`${API}/api/countries`).then(r => r.json())
+            ]);
+
+            const campSelect = document.getElementById('filterCampaign');
+            campaigns.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.campaign_id;
+                opt.textContent = `${c.campaign_id} (${c.country})`;
+                campSelect.appendChild(opt);
+            });
+
+            const countrySelect = document.getElementById('filterCountry');
+            countries.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.country;
+                opt.textContent = c.country;
+                countrySelect.appendChild(opt);
+            });
+        } catch (e) {
+            // No data yet — that's fine
+        }
+    }
+
+    async function loadCalendar() {
+        const campaign_id = document.getElementById('filterCampaign').value;
+        const country = document.getElementById('filterCountry').value;
+        const start_date = document.getElementById('filterStartDate').value;
+        const end_date = document.getElementById('filterEndDate').value;
+
+        if (!campaign_id && !country) {
+            showToast('Select at least a Campaign ID or Country');
+            return;
+        }
+
+        const params = new URLSearchParams();
+        if (campaign_id) params.set('campaign_id', campaign_id);
+        if (country) params.set('country', country);
+        if (start_date) params.set('start_date', start_date);
+        if (end_date) params.set('end_date', end_date);
+
+        try {
+            const res = await fetch(`${API}/api/business/calendar?${params}`);
+            const data = await res.json();
+            renderCalendar(data, start_date, end_date);
+        } catch (e) {
+            showToast('Failed to load data: ' + e.message);
+        }
+    }
+
+    function renderCalendar(data, startDate, endDate) {
+        const { journeys, calendar } = data;
+
+        document.getElementById('summarySection').style.display = 'block';
+        document.getElementById('calendarSection').style.display = 'block';
+
+        if (!journeys || journeys.length === 0) {
+            document.getElementById('summaryGrid').innerHTML = '';
+            document.getElementById('calendarContainer').innerHTML = '<div class="no-data">No journeys found for the selected filters</div>';
+            return;
+        }
+
+        // Build date range
+        const dates = [];
+        let d = new Date(startDate);
+        const end = new Date(endDate);
+        while (d <= end) {
+            dates.push({ date: formatDate(d), dayName: getDayName(d), isWeekend: d.getDay() === 0 || d.getDay() === 6 });
+            d.setDate(d.getDate() + 1);
+        }
+
+        // Build lookup: { date: { journeyName: { emailName: volume } } }
+        const volLookup = {};
+        const journeyEmails = {}; // { journeyName: Set of emailNames }
+        const journeyMeta = {}; // { journeyName: { status, campaign_id } }
+
+        calendar.forEach(day => {
+            if (!volLookup[day.date]) volLookup[day.date] = {};
+            day.entries.forEach(entry => {
+                const jName = entry.journey_name;
+                if (!volLookup[day.date][jName]) volLookup[day.date][jName] = {};
+                volLookup[day.date][jName][entry.email_name] = (volLookup[day.date][jName][entry.email_name] || 0) + entry.volume;
+
+                if (!journeyEmails[jName]) journeyEmails[jName] = new Set();
+                journeyEmails[jName].add(entry.email_name);
+
+                if (!journeyMeta[jName]) journeyMeta[jName] = { status: entry.journey_status, campaign_id: entry.campaign_id };
+            });
+        });
+
+        // Summary
+        const totalVolume = calendar.reduce((s, d) => s + d.totalVolume, 0);
+        const totalMain = calendar.reduce((s, d) => s + d.totalMain, 0);
+        const totalReminder = calendar.reduce((s, d) => s + d.totalReminder, 0);
+        const activeDays = calendar.length;
+        const avgPerDay = activeDays > 0 ? Math.round(totalVolume / activeDays) : 0;
+        const maxDay = calendar.reduce((max, d) => d.totalVolume > max.totalVolume ? d : max, { totalVolume: 0 });
+
+        document.getElementById('summaryGrid').innerHTML = `
+            <div class="summary-card"><div class="value">${journeys.length}</div><div class="label">Journeys</div></div>
+            <div class="summary-card"><div class="value">${totalVolume.toLocaleString()}</div><div class="label">Total Emails</div></div>
+            <div class="summary-card"><div class="value">${totalMain.toLocaleString()}</div><div class="label">Main Sends</div></div>
+            <div class="summary-card"><div class="value">${totalReminder.toLocaleString()}</div><div class="label">Reminders</div></div>
+            <div class="summary-card"><div class="value">${activeDays}</div><div class="label">Active Days</div></div>
+            <div class="summary-card"><div class="value">${avgPerDay.toLocaleString()}</div><div class="label">Avg/Day</div></div>
+            <div class="summary-card"><div class="value">${maxDay.totalVolume?.toLocaleString() || 0}</div><div class="label">Peak Day</div></div>
+            <div class="summary-card"><div class="value" style="font-size:0.9rem">${maxDay.date || '-'}</div><div class="label">Peak Date</div></div>
+        `;
+
+        // Determine threshold for high volume (> 1.5x average)
+        const highThreshold = avgPerDay * 1.5;
+
+        // Build table
+        let html = '<table class="calendar-table"><thead><tr>';
+        html += '<th style="position:sticky;left:0;z-index:3;background:#f7fafc;min-width:180px;text-align:left;">Journey / Email</th>';
+        dates.forEach(dt => {
+            html += `<th class="date-header ${dt.isWeekend ? 'weekend-col' : ''}">${dt.date.slice(5)}<br><span class="day-name">${dt.dayName}</span></th>`;
+        });
+        html += '<th>Total</th></tr></thead><tbody>';
+
+        // Rows for each journey and its emails
+        const journeyNames = Object.keys(journeyEmails).sort();
+
+        journeyNames.forEach(jName => {
+            const emails = [...journeyEmails[jName]].sort((a, b) => {
+                // Put main emails first
+                if (a.toLowerCase().includes('main')) return -1;
+                if (b.toLowerCase().includes('main')) return 1;
+                return a.localeCompare(b);
+            });
+
+            // Journey header row (collapsed totals)
+            html += '<tr class="journey-header">';
+            html += `<td class="journey-name">${jName} <span class="badge badge-${journeyMeta[jName]?.status || 'active'}">${journeyMeta[jName]?.status || 'active'}</span></td>`;
+            let journeyTotal = 0;
+            dates.forEach(dt => {
+                const dayData = volLookup[dt.date]?.[jName];
+                let dayVol = 0;
+                if (dayData) { Object.values(dayData).forEach(v => dayVol += v); }
+                journeyTotal += dayVol;
+                const cls = dt.isWeekend ? 'weekend-col' : (dayVol > 0 ? 'has-volume' : '');
+                html += `<td class="${cls}">${dayVol > 0 ? dayVol.toLocaleString() : '-'}</td>`;
+            });
+            html += `<td><strong>${journeyTotal.toLocaleString()}</strong></td></tr>`;
+
+            // Individual email rows
+            emails.forEach(emailName => {
+                html += '<tr>';
+                html += `<td class="email-name">${emailName}</td>`;
+                let emailTotal = 0;
+                dates.forEach(dt => {
+                    const vol = volLookup[dt.date]?.[jName]?.[emailName] || 0;
+                    emailTotal += vol;
+                    const cls = dt.isWeekend ? 'weekend-col' : (vol > 0 ? 'has-volume' : '');
+                    html += `<td class="${cls}">${vol > 0 ? vol.toLocaleString() : '-'}</td>`;
+                });
+                html += `<td>${emailTotal.toLocaleString()}</td></tr>`;
+            });
+        });
+
+        // Main totals row
+        html += '<tr class="sub-total"><td class="journey-name">Total Main Sends</td>';
+        let mainRowTotal = 0;
+        dates.forEach(dt => {
+            const dayData = calendar.find(c => c.date === dt.date);
+            const vol = dayData ? dayData.totalMain : 0;
+            mainRowTotal += vol;
+            html += `<td>${vol > 0 ? vol.toLocaleString() : '-'}</td>`;
+        });
+        html += `<td>${mainRowTotal.toLocaleString()}</td></tr>`;
+
+        html += '<tr class="sub-total"><td class="journey-name">Total Reminders</td>';
+        let remRowTotal = 0;
+        dates.forEach(dt => {
+            const dayData = calendar.find(c => c.date === dt.date);
+            const vol = dayData ? dayData.totalReminder : 0;
+            remRowTotal += vol;
+            html += `<td>${vol > 0 ? vol.toLocaleString() : '-'}</td>`;
+        });
+        html += `<td>${remRowTotal.toLocaleString()}</td></tr>`;
+
+        // Grand total row
+        html += '<tr class="totals-row"><td class="journey-name">GRAND TOTAL</td>';
+        let grandTotal = 0;
+        dates.forEach(dt => {
+            const dayData = calendar.find(c => c.date === dt.date);
+            const vol = dayData ? dayData.totalVolume : 0;
+            grandTotal += vol;
+            const cls = vol > highThreshold ? 'high-volume' : (dt.isWeekend ? 'weekend-col' : '');
+            html += `<td class="${cls}">${vol > 0 ? vol.toLocaleString() : '-'}</td>`;
+        });
+        html += `<td><strong>${grandTotal.toLocaleString()}</strong></td></tr>`;
+
+        html += '</tbody></table>';
+        document.getElementById('calendarContainer').innerHTML = html;
+    }
+
+    function resetFilters() {
+        document.getElementById('filterCampaign').value = '';
+        document.getElementById('filterCountry').value = '';
+        const now = new Date();
+        document.getElementById('filterStartDate').value = formatDate(new Date(now.getFullYear(), now.getMonth(), 1));
+        document.getElementById('filterEndDate').value = formatDate(new Date(now.getFullYear(), now.getMonth() + 2, 0));
+    }
+
+    // Helpers
+    function formatDate(d) {
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function getDayName(d) {
+        return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+    </script>
+</body>
+</html>

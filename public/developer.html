@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journey Cadence Tool - Developer View</title>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-light: #e8f0fe;
+            --success: #34a853;
+            --warning: #f9ab00;
+            --danger: #ea4335;
+            --gray-50: #f8f9fa;
+            --gray-100: #f1f3f4;
+            --gray-200: #e8eaed;
+            --gray-300: #dadce0;
+            --gray-400: #bdc1c6;
+            --gray-500: #9aa0a6;
+            --gray-600: #80868b;
+            --gray-700: #5f6368;
+            --gray-800: #3c4043;
+            --gray-900: #202124;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+            --shadow-lg: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-900);
+            line-height: 1.5;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .header-links a {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            margin-left: 16px;
+        }
+
+        .header-links a:hover { text-decoration: underline; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 0 24px;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--gray-600);
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab:hover { color: var(--primary); }
+        .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+        /* Main Content */
+        .main { padding: 24px; max-width: 1600px; margin: 0 auto; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+
+        /* Form Grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .form-group { display: flex; flex-direction: column; }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--gray-600);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 8px 12px;
+            border: 1px solid var(--gray-300);
+            border-radius: 4px;
+            font-size: 14px;
+            color: var(--gray-900);
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+
+        /* Checkbox group */
+        .checkbox-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding-top: 4px;
+        }
+
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            color: var(--gray-700);
+            text-transform: none;
+            letter-spacing: 0;
+            cursor: pointer;
+        }
+
+        .checkbox-group input[type="checkbox"] { width: 16px; height: 16px; }
+
+        /* Email Config Section */
+        .email-section {
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        .email-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .email-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+
+        .email-actions { display: flex; gap: 8px; }
+
+        .email-row {
+            display: grid;
+            grid-template-columns: 180px 200px 100px 80px 160px 160px 32px;
+            gap: 8px;
+            align-items: center;
+            padding: 8px;
+            border: 1px solid var(--gray-200);
+            border-radius: 4px;
+            margin-bottom: 8px;
+            background: var(--gray-50);
+        }
+
+        .email-row.main-send { border-left: 3px solid var(--primary); }
+        .email-row.reminder { border-left: 3px solid var(--warning); margin-left: 16px; }
+
+        .email-row input,
+        .email-row select {
+            padding: 6px 8px;
+            border: 1px solid var(--gray-300);
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .email-row input:focus,
+        .email-row select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-main { background: var(--primary-light); color: var(--primary); }
+        .badge-reminder { background: #fef7e0; color: #b06000; }
+        .badge-sfmc { background: #e6f4ea; color: var(--success); }
+
+        .btn-remove {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            color: var(--gray-500);
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 18px;
+        }
+
+        .btn-remove:hover { background: #fce8e6; color: var(--danger); }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #1557b0; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #2d9249; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-warning:hover { background: #e09800; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #d32f2f; }
+        .btn-outline { background: white; border-color: var(--gray-300); color: var(--gray-700); }
+        .btn-outline:hover { background: var(--gray-100); }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        /* Cadence Table */
+        .table-container { overflow-x: auto; margin-top: 16px; }
+
+        .cadence-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .cadence-table th {
+            background: var(--gray-100);
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--gray-700);
+            border-bottom: 2px solid var(--gray-200);
+            white-space: nowrap;
+        }
+
+        .cadence-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--gray-200);
+            white-space: nowrap;
+        }
+
+        .cadence-table tr.excluded { background: #f5f5f5; color: var(--gray-500); }
+        .cadence-table tr.paused { background: #fff8e1; }
+        .cadence-table tr.weekend { background: #fafafa; color: var(--gray-400); }
+
+        .cadence-table .wait-cell { font-style: italic; color: var(--gray-400); }
+        .cadence-table .volume-cell { font-weight: 500; }
+
+        /* SFMC Section */
+        .sfmc-section { margin-top: 20px; }
+        .sfmc-textarea {
+            width: 100%;
+            min-height: 120px;
+            font-family: 'Cascadia Code', 'Consolas', monospace;
+            font-size: 12px;
+            padding: 12px;
+            border: 1px solid var(--gray-300);
+            border-radius: 4px;
+            resize: vertical;
+        }
+
+        /* Saved Journeys Table */
+        .journeys-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .journeys-table th {
+            background: var(--gray-100);
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--gray-700);
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .journeys-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .journeys-table tr:hover { background: var(--gray-50); }
+
+        .journey-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .journey-link:hover { text-decoration: underline; }
+
+        .status-badge {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-active { background: #e6f4ea; color: var(--success); }
+        .status-paused { background: #fff8e1; color: #b06000; }
+        .status-stopped { background: #fce8e6; color: var(--danger); }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            border-radius: var(--radius);
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+        }
+
+        .toast-success { background: var(--success); }
+        .toast-error { background: var(--danger); }
+        .toast-info { background: var(--primary); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Summary stats */
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            padding: 12px 16px;
+            background: var(--primary-light);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+        }
+
+        .stat-item { display: flex; flex-direction: column; }
+        .stat-label { font-size: 11px; color: var(--gray-600); text-transform: uppercase; }
+        .stat-value { font-size: 16px; font-weight: 600; color: var(--primary); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .form-grid { grid-template-columns: 1fr 1fr; }
+            .email-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Journey Cadence Tool</h1>
+    <div class="header-links">
+        <a href="/business">Business View</a>
+    </div>
+</div>
+
+<div class="tabs">
+    <div class="tab active" data-tab="builder">Cadence Builder</div>
+    <div class="tab" data-tab="saved">Saved Journeys</div>
+</div>
+
+<div class="main">
+    <!-- Cadence Builder Tab -->
+    <div id="tab-builder" class="tab-content active">
+        <!-- Journey Config Form -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Journey Configuration</span>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Campaign ID</label>
+                    <input type="text" id="campaignId" placeholder="US-CAM-001">
+                </div>
+                <div class="form-group">
+                    <label>SFMC Journey Name</label>
+                    <input type="text" id="sfmcJourneyName" placeholder="Journey name in SFMC">
+                </div>
+                <div class="form-group">
+                    <label>Country</label>
+                    <input type="text" id="country" placeholder="US" maxlength="2" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Total Audience</label>
+                    <input type="number" id="totalAudience" placeholder="50000" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Volume per Day</label>
+                    <input type="number" id="volumePerDay" placeholder="5000" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="form-group">
+                    <label>Default Open Rate %</label>
+                    <input type="number" id="defaultOpenRate" value="50" min="0" max="100" step="1">
+                </div>
+                <div class="form-group">
+                    <label>Default Click Rate %</label>
+                    <input type="number" id="defaultClickRate" value="2" min="0" max="100" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>Excluded Dates</label>
+                    <input type="text" id="excludedDates" placeholder="2024-12-25, 2024-12-31">
+                </div>
+                <div class="form-group">
+                    <label>Exclude Days</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" value="0"> Sun</label>
+                        <label><input type="checkbox" value="1"> Mon</label>
+                        <label><input type="checkbox" value="2"> Tue</label>
+                        <label><input type="checkbox" value="3"> Wed</label>
+                        <label><input type="checkbox" value="4"> Thu</label>
+                        <label><input type="checkbox" value="5"> Fri</label>
+                        <label><input type="checkbox" value="6" checked> Sat</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email Configuration -->
+        <div class="card">
+            <div class="email-section">
+                <div class="email-section-header">
+                    <span class="email-section-title">Email Configuration</span>
+                    <div class="email-actions">
+                        <button class="btn btn-primary btn-sm" onclick="addMainSend()">+ Add Main Send</button>
+                        <button class="btn btn-warning btn-sm" onclick="addReminder()">+ Add Reminder</button>
+                    </div>
+                </div>
+                <div class="email-row-labels" style="display:grid; grid-template-columns: 180px 200px 100px 80px 160px 160px 32px; gap:8px; padding:4px 8px; font-size:11px; color:var(--gray-500); text-transform:uppercase; font-weight:600;">
+                    <span>Email Name</span>
+                    <span>SFMC Email Name</span>
+                    <span>Type</span>
+                    <span>Wait (days)</span>
+                    <span>Parent Send</span>
+                    <span>Condition</span>
+                    <span></span>
+                </div>
+                <div id="emailList"></div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card">
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="generateCadence()">Generate Cadence</button>
+                <button class="btn btn-success" onclick="saveJourney()">Save to Database</button>
+                <button class="btn btn-outline" onclick="copyForJira()">Copy for Jira</button>
+                <button class="btn btn-outline" onclick="copyAsCSV()">Copy as CSV</button>
+            </div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div id="statsBar" class="stats-bar" style="display:none;">
+            <div class="stat-item"><span class="stat-label">Total Days</span><span class="stat-value" id="statTotalDays">-</span></div>
+            <div class="stat-item"><span class="stat-label">Active Days</span><span class="stat-value" id="statActiveDays">-</span></div>
+            <div class="stat-item"><span class="stat-label">End Date</span><span class="stat-value" id="statEndDate">-</span></div>
+            <div class="stat-item"><span class="stat-label">Total Volume</span><span class="stat-value" id="statTotalVolume">-</span></div>
+            <div class="stat-item"><span class="stat-label">Main Sends</span><span class="stat-value" id="statMainSends">-</span></div>
+            <div class="stat-item"><span class="stat-label">Reminders</span><span class="stat-value" id="statReminders">-</span></div>
+        </div>
+
+        <!-- Cadence Table -->
+        <div class="card" id="cadenceCard" style="display:none;">
+            <div class="card-header">
+                <span class="card-title">Cadence Schedule</span>
+            </div>
+            <div class="table-container" id="cadenceTableContainer"></div>
+        </div>
+
+        <!-- SFMC Data Section -->
+        <div class="card sfmc-section" id="sfmcSection" style="display:none;">
+            <div class="card-header">
+                <span class="card-title">SFMC Actual Data</span>
+            </div>
+            <p style="font-size:13px; color:var(--gray-600); margin-bottom:12px;">
+                Paste SFMC journey data (JSON array) to replace estimated volumes with actuals.
+                Format: <code>[{"date":"2024-01-01","email":"Email1","sends":5000,"opens":2500,"clicks":100}]</code>
+            </p>
+            <textarea class="sfmc-textarea" id="sfmcDataInput" placeholder='[{"date":"2024-01-01","email":"Main Send 1","sends":5000,"opens":2500,"clicks":100}]'></textarea>
+            <div style="margin-top:12px;">
+                <button class="btn btn-primary btn-sm" onclick="applySfmcData()">Apply SFMC Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Saved Journeys Tab -->
+    <div id="tab-saved" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Saved Journeys</span>
+                <button class="btn btn-outline btn-sm" onclick="loadJourneys()">Refresh</button>
+            </div>
+            <table class="journeys-table">
+                <thead>
+                    <tr>
+                        <th>Journey Name</th>
+                        <th>Campaign ID</th>
+                        <th>Country</th>
+                        <th>Audience</th>
+                        <th>Volume/Day</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Status</th>
+                        <th>Versions</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="journeysTableBody">
+                    <tr><td colspan="10" style="text-align:center; color:var(--gray-500); padding:40px;">No journeys saved yet</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ============ STATE ============
+let emails = [];
+let cadenceData = [];
+let sfmcActualData = null;
+let currentJourneyId = null;
+let emailIdCounter = 0;
+
+// ============ INITIALIZATION ============
+document.addEventListener('DOMContentLoaded', () => {
+    initTabs();
+    initCampaignIdWatcher();
+    addMainSend();
+    addReminder();
+    setDefaultStartDate();
+});
+
+function setDefaultStartDate() {
+    const today = new Date();
+    today.setDate(today.getDate() + 1);
+    document.getElementById('startDate').value = today.toISOString().split('T')[0];
+}
+
+function initTabs() {
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+            if (tab.dataset.tab === 'saved') loadJourneys();
+        });
+    });
+}
+
+function initCampaignIdWatcher() {
+    document.getElementById('campaignId').addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        const countryCode = val.split('-')[0] || '';
+        document.getElementById('country').value = countryCode.toUpperCase().slice(0, 2);
+    });
+}
+
+// ============ EMAIL MANAGEMENT ============
+function addMainSend() {
+    emailIdCounter++;
+    const email = {
+        id: emailIdCounter,
+        name: `Main Send ${getMainSendCount() + 1}`,
+        sfmcName: '',
+        type: 'main',
+        wait: 0,
+        parentId: null,
+        condition: 'none'
+    };
+    emails.push(email);
+    renderEmails();
+}
+
+function addReminder() {
+    const mainSends = emails.filter(e => e.type === 'main');
+    if (mainSends.length === 0) {
+        showToast('Add at least one Main Send first', 'error');
+        return;
+    }
+    emailIdCounter++;
+    const email = {
+        id: emailIdCounter,
+        name: `Reminder ${getReminderCount() + 1}`,
+        sfmcName: '',
+        type: 'reminder',
+        wait: 7,
+        parentId: mainSends[0].id,
+        condition: 'non-openers'
+    };
+    emails.push(email);
+    renderEmails();
+}
+
+function removeEmail(id) {
+    const email = emails.find(e => e.id === id);
+    if (email && email.type === 'main') {
+        // Remove attached reminders
+        emails = emails.filter(e => e.parentId !== id && e.id !== id);
+    } else {
+        emails = emails.filter(e => e.id !== id);
+    }
+    renderEmails();
+}
+
+function getMainSendCount() {
+    return emails.filter(e => e.type === 'main').length;
+}
+
+function getReminderCount() {
+    return emails.filter(e => e.type === 'reminder').length;
+}
+
+function getMainSends() {
+    return emails.filter(e => e.type === 'main');
+}
+
+function renderEmails() {
+    const container = document.getElementById('emailList');
+    const mainSends = getMainSends();
+
+    // Sort: main sends first, then reminders grouped by parent
+    const sorted = [];
+    mainSends.forEach(ms => {
+        sorted.push(ms);
+        emails.filter(e => e.type === 'reminder' && e.parentId === ms.id).forEach(r => sorted.push(r));
+    });
+    // Add any orphaned reminders
+    emails.filter(e => e.type === 'reminder' && !mainSends.find(ms => ms.id === e.parentId)).forEach(r => sorted.push(r));
+
+    container.innerHTML = sorted.map(email => {
+        const isMain = email.type === 'main';
+        const parentOptions = mainSends.map(ms =>
+            `<option value="${ms.id}" ${email.parentId === ms.id ? 'selected' : ''}>${ms.name}</option>`
+        ).join('');
+
+        return `
+            <div class="email-row ${isMain ? 'main-send' : 'reminder'}">
+                <input type="text" value="${email.name}" placeholder="Email name"
+                    onchange="updateEmail(${email.id}, 'name', this.value)">
+                <input type="text" value="${email.sfmcName}" placeholder="SFMC activity name"
+                    onchange="updateEmail(${email.id}, 'sfmcName', this.value)">
+                <span class="badge ${isMain ? 'badge-main' : 'badge-reminder'}">${isMain ? 'Main Send' : 'Reminder'}</span>
+                ${isMain ? '<span style="color:var(--gray-400); font-size:12px;">-</span>' :
+                    `<input type="number" value="${email.wait}" min="1" max="30" style="width:60px;"
+                        onchange="updateEmail(${email.id}, 'wait', parseInt(this.value))">`}
+                ${isMain ? '<span style="color:var(--gray-400); font-size:12px;">-</span>' :
+                    `<select onchange="updateEmail(${email.id}, 'parentId', parseInt(this.value))">${parentOptions}</select>`}
+                ${isMain ? '<span style="color:var(--gray-400); font-size:12px;">-</span>' :
+                    `<select onchange="updateEmail(${email.id}, 'condition', this.value)">
+                        <option value="non-openers" ${email.condition === 'non-openers' ? 'selected' : ''}>Non-Openers</option>
+                        <option value="non-clickers" ${email.condition === 'non-clickers' ? 'selected' : ''}>Non-Clickers</option>
+                        <option value="openers" ${email.condition === 'openers' ? 'selected' : ''}>Openers</option>
+                        <option value="clickers" ${email.condition === 'clickers' ? 'selected' : ''}>Clickers</option>
+                        <option value="openers-no-lead" ${email.condition === 'openers-no-lead' ? 'selected' : ''}>Openers (no lead)</option>
+                        <option value="clickers-no-lead" ${email.condition === 'clickers-no-lead' ? 'selected' : ''}>Clickers (no lead)</option>
+                    </select>`}
+                <button class="btn-remove" onclick="removeEmail(${email.id})" title="Remove">&times;</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateEmail(id, field, value) {
+    const email = emails.find(e => e.id === id);
+    if (email) email[field] = value;
+}
+
+// ============ CADENCE GENERATION ============
+function generateCadence() {
+    const totalAudience = parseInt(document.getElementById('totalAudience').value);
+    const volumePerDay = parseInt(document.getElementById('volumePerDay').value);
+    const startDate = document.getElementById('startDate').value;
+    const openRate = parseFloat(document.getElementById('defaultOpenRate').value) / 100;
+    const clickRate = parseFloat(document.getElementById('defaultClickRate').value) / 100;
+
+    if (!totalAudience || !volumePerDay || !startDate) {
+        showToast('Please fill in Total Audience, Volume per Day, and Start Date', 'error');
+        return;
+    }
+
+    const mainSends = getMainSends();
+    if (mainSends.length === 0) {
+        showToast('Add at least one Main Send', 'error');
+        return;
+    }
+
+    const excludedDays = getExcludedDays();
+    const excludedDates = getExcludedDates();
+
+    // Calculate main send days
+    const mainSendDays = Math.ceil(totalAudience / volumePerDay);
+    const volumePerMainSendPerDay = Math.floor(volumePerDay / mainSends.length);
+
+    // Get reminders and find max wait
+    const reminders = emails.filter(e => e.type === 'reminder');
+    const maxWait = reminders.length > 0 ? Math.max(...reminders.map(r => r.wait)) : 0;
+
+    // Total active days needed (main send days + max reminder continuation)
+    const totalActiveDays = mainSendDays + maxWait;
+
+    // Build calendar - map active days to actual dates
+    const calendar = [];
+    let currentDate = new Date(startDate + 'T00:00:00');
+    let activeDayCount = 0;
+    let calendarDayCount = 0;
+
+    while (activeDayCount < totalActiveDays) {
+        calendarDayCount++;
+        const dateStr = formatDate(currentDate);
+        const dayOfWeek = currentDate.getDay();
+        const dayName = getDayName(dayOfWeek);
+
+        const isExcludedDay = excludedDays.includes(dayOfWeek);
+        const isExcludedDate = excludedDates.includes(dateStr);
+        const isExcluded = isExcludedDay || isExcludedDate;
+
+        const dayEntry = {
+            dayNumber: isExcluded ? '-' : activeDayCount + 1,
+            dateStr: dateStr,
+            dayName: dayName,
+            excluded: isExcluded,
+            paused: false,
+            emails: []
+        };
+
+        if (!isExcluded) {
+            activeDayCount++;
+            const activeDay = activeDayCount;
+
+            // Main sends - only for the first mainSendDays active days
+            mainSends.forEach(ms => {
+                let volume = 0;
+                if (activeDay <= mainSendDays) {
+                    // Last day might be partial
+                    if (activeDay === mainSendDays) {
+                        const remaining = totalAudience - (volumePerMainSendPerDay * (mainSendDays - 1) * mainSends.length);
+                        volume = Math.ceil(remaining / mainSends.length);
+                    } else {
+                        volume = volumePerMainSendPerDay;
+                    }
+                }
+                dayEntry.emails.push({
+                    emailId: ms.id,
+                    name: ms.name,
+                    type: 'main',
+                    volume: volume,
+                    isFromSfmc: false,
+                    condition: 'none'
+                });
+            });
+
+            // Reminders
+            reminders.forEach(rem => {
+                const parentMainSend = mainSends.find(ms => ms.id === rem.parentId);
+                if (!parentMainSend) return;
+
+                let volume = 0;
+                let isWaiting = false;
+
+                if (activeDay <= rem.wait) {
+                    // Still in wait period
+                    isWaiting = true;
+                } else {
+                    // Active reminder day
+                    const reminderActiveDay = activeDay - rem.wait;
+                    if (reminderActiveDay >= 1 && reminderActiveDay <= mainSendDays) {
+                        // Get the parent main send volume from that day
+                        const parentDayVolume = (reminderActiveDay === mainSendDays) ?
+                            Math.ceil((totalAudience - (volumePerMainSendPerDay * (mainSendDays - 1) * mainSends.length)) / mainSends.length) :
+                            volumePerMainSendPerDay;
+
+                        volume = calculateReminderVolume(parentDayVolume, rem.condition, openRate, clickRate);
+                    }
+                }
+
+                dayEntry.emails.push({
+                    emailId: rem.id,
+                    name: rem.name,
+                    type: 'reminder',
+                    volume: volume,
+                    isWaiting: isWaiting,
+                    isFromSfmc: false,
+                    condition: rem.condition,
+                    parentId: rem.parentId,
+                    wait: rem.wait
+                });
+            });
+        }
+
+        calendar.push(dayEntry);
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    cadenceData = calendar;
+    renderCadenceTable();
+    updateStats(calendar, mainSendDays);
+    document.getElementById('cadenceCard').style.display = 'block';
+    document.getElementById('sfmcSection').style.display = 'block';
+    document.getElementById('statsBar').style.display = 'flex';
+    showToast('Cadence generated successfully', 'success');
+}
+
+function calculateReminderVolume(parentVolume, condition, openRate, clickRate) {
+    switch (condition) {
+        case 'non-openers': return Math.round(parentVolume * (1 - openRate));
+        case 'non-clickers': return Math.round(parentVolume * (1 - clickRate));
+        case 'openers': return Math.round(parentVolume * openRate);
+        case 'clickers': return Math.round(parentVolume * clickRate);
+        case 'openers-no-lead': return Math.round(parentVolume * openRate * 0.9);
+        case 'clickers-no-lead': return Math.round(parentVolume * clickRate * 0.8);
+        default: return 0;
+    }
+}
+
+function renderCadenceTable() {
+    const container = document.getElementById('cadenceTableContainer');
+    const allEmails = [...getMainSends(), ...emails.filter(e => e.type === 'reminder')];
+
+    // Build table header
+    let html = '<table class="cadence-table"><thead><tr>';
+    html += '<th>Day #</th><th>Date</th><th>Day</th>';
+    allEmails.forEach(email => {
+        html += `<th>${email.name}</th>`;
+    });
+    html += '<th>Total Volume</th><th>Status</th></tr></thead><tbody>';
+
+    // Build rows
+    cadenceData.forEach(day => {
+        let rowClass = '';
+        if (day.excluded) rowClass = 'weekend';
+        if (day.paused) rowClass = 'paused';
+
+        html += `<tr class="${rowClass}">`;
+        html += `<td>${day.dayNumber}</td>`;
+        html += `<td>${day.dateStr}</td>`;
+        html += `<td>${day.dayName}</td>`;
+
+        let dayTotal = 0;
+
+        allEmails.forEach(email => {
+            const emailData = day.emails.find(e => e.emailId === email.id);
+            if (!emailData) {
+                html += '<td>-</td>';
+                return;
+            }
+
+            if (emailData.isWaiting) {
+                html += '<td class="wait-cell">wait</td>';
+            } else if (emailData.volume > 0) {
+                const sfmcBadge = emailData.isFromSfmc ? ' <span class="badge badge-sfmc">SFMC</span>' : '';
+                html += `<td class="volume-cell">${emailData.volume.toLocaleString()}${sfmcBadge}</td>`;
+                dayTotal += emailData.volume;
+            } else {
+                html += '<td>-</td>';
+            }
+        });
+
+        html += `<td class="volume-cell">${dayTotal > 0 ? dayTotal.toLocaleString() : '-'}</td>`;
+
+        // Status
+        let statusText = '';
+        if (day.excluded) statusText = 'Excluded';
+        else if (day.paused) statusText = 'Paused';
+        else statusText = 'Active';
+        html += `<td>${statusText}</td>`;
+
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function updateStats(calendar, mainSendDays) {
+    const activeDays = calendar.filter(d => !d.excluded && !d.paused);
+    const totalVolume = calendar.reduce((sum, day) => {
+        return sum + day.emails.reduce((s, e) => s + (e.volume || 0), 0);
+    }, 0);
+    const lastDay = calendar[calendar.length - 1];
+
+    document.getElementById('statTotalDays').textContent = calendar.length;
+    document.getElementById('statActiveDays').textContent = activeDays.length;
+    document.getElementById('statEndDate').textContent = lastDay ? lastDay.dateStr : '-';
+    document.getElementById('statTotalVolume').textContent = totalVolume.toLocaleString();
+    document.getElementById('statMainSends').textContent = getMainSendCount();
+    document.getElementById('statReminders').textContent = getReminderCount();
+}
+
+// ============ SFMC DATA ============
+function applySfmcData() {
+    const input = document.getElementById('sfmcDataInput').value.trim();
+    if (!input) {
+        showToast('Paste SFMC data first', 'error');
+        return;
+    }
+
+    try {
+        sfmcActualData = JSON.parse(input);
+        if (!Array.isArray(sfmcActualData)) throw new Error('Must be an array');
+
+        // Apply actual data to cadence
+        const openRate = parseFloat(document.getElementById('defaultOpenRate').value) / 100;
+        const clickRate = parseFloat(document.getElementById('defaultClickRate').value) / 100;
+
+        sfmcActualData.forEach(sfmcRow => {
+            const dayEntry = cadenceData.find(d => d.dateStr === sfmcRow.date);
+            if (!dayEntry) return;
+
+            const emailEntry = dayEntry.emails.find(e =>
+                e.name === sfmcRow.email || emails.find(em => em.id === e.emailId && em.sfmcName === sfmcRow.email)
+            );
+
+            if (emailEntry) {
+                if (sfmcRow.sends !== undefined) {
+                    emailEntry.volume = sfmcRow.sends;
+                    emailEntry.isFromSfmc = true;
+                }
+                // Store opens/clicks for reminder recalculation
+                emailEntry.actualOpens = sfmcRow.opens;
+                emailEntry.actualClicks = sfmcRow.clicks;
+            }
+        });
+
+        // Recalculate reminder volumes based on actual parent data
+        cadenceData.forEach(day => {
+            day.emails.forEach(emailEntry => {
+                if (emailEntry.type !== 'reminder' || emailEntry.isWaiting) return;
+
+                const reminder = emails.find(e => e.id === emailEntry.emailId);
+                if (!reminder) return;
+
+                // Find the parent main send's day (current active day - wait)
+                const parentDay = findParentDay(day, reminder);
+                if (!parentDay) return;
+
+                const parentEmail = parentDay.emails.find(e => e.emailId === reminder.parentId);
+                if (!parentEmail || !parentEmail.isFromSfmc) return;
+
+                // Use actual opens/clicks if available
+                if (parentEmail.actualOpens !== undefined || parentEmail.actualClicks !== undefined) {
+                    const actualOpen = parentEmail.actualOpens || 0;
+                    const actualClick = parentEmail.actualClicks || 0;
+                    const sends = parentEmail.volume || 0;
+
+                    switch (reminder.condition) {
+                        case 'non-openers': emailEntry.volume = sends - actualOpen; break;
+                        case 'non-clickers': emailEntry.volume = sends - actualClick; break;
+                        case 'openers': emailEntry.volume = actualOpen; break;
+                        case 'clickers': emailEntry.volume = actualClick; break;
+                        case 'openers-no-lead':
+                            emailEntry.volume = Math.round(actualOpen * 0.9); break;
+                        case 'clickers-no-lead':
+                            emailEntry.volume = Math.round(actualClick * 0.8); break;
+                    }
+                    emailEntry.isFromSfmc = true;
+                }
+            });
+        });
+
+        renderCadenceTable();
+        showToast('SFMC data applied successfully', 'success');
+    } catch (e) {
+        showToast(`Invalid JSON: ${e.message}`, 'error');
+    }
+}
+
+function findParentDay(currentDay, reminder) {
+    // Find what active day number this current day is
+    let currentActiveDayNum = 0;
+    for (const day of cadenceData) {
+        if (!day.excluded && !day.paused) currentActiveDayNum++;
+        if (day === currentDay) break;
+    }
+    // The parent day is (currentActiveDay - wait)
+    const targetActiveDay = currentActiveDayNum - reminder.wait;
+    if (targetActiveDay < 1) return null;
+
+    let count = 0;
+    for (const day of cadenceData) {
+        if (!day.excluded && !day.paused) {
+            count++;
+            if (count === targetActiveDay) return day;
+        }
+    }
+    return null;
+}
+
+// ============ SAVE/LOAD ============
+async function saveJourney() {
+    if (cadenceData.length === 0) {
+        showToast('Generate cadence first', 'error');
+        return;
+    }
+
+    const campaignId = document.getElementById('campaignId').value.trim();
+    const sfmcJourneyName = document.getElementById('sfmcJourneyName').value.trim();
+
+    if (!campaignId) {
+        showToast('Campaign ID is required', 'error');
+        return;
+    }
+
+    const journeyName = sfmcJourneyName || campaignId;
+    const lastDay = cadenceData[cadenceData.length - 1];
+
+    const payload = {
+        journey_name: journeyName,
+        campaign_id: campaignId,
+        country: document.getElementById('country').value,
+        sfmc_journey_name: sfmcJourneyName,
+        total_audience: parseInt(document.getElementById('totalAudience').value),
+        volume_per_day: parseInt(document.getElementById('volumePerDay').value),
+        start_date: document.getElementById('startDate').value,
+        end_date: lastDay ? lastDay.dateStr : '',
+        excluded_days: getExcludedDays().join(','),
+        excluded_dates: document.getElementById('excludedDates').value.trim(),
+        status: 'active',
+        notes: '',
+        email_configs: emails,
+        cadence_data: cadenceData,
+        sfmc_data: sfmcActualData
+    };
+
+    try {
+        const resp = await fetch('/api/journeys', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.success) {
+            currentJourneyId = data.journey_id;
+            showToast(`Saved! Version ${data.version_number} (${data.version_label})`, 'success');
+        } else {
+            showToast(data.error || 'Save failed', 'error');
+        }
+    } catch (e) {
+        showToast(`Error: ${e.message}`, 'error');
+    }
+}
+
+async function loadJourneys() {
+    try {
+        const resp = await fetch('/api/journeys');
+        const journeys = await resp.json();
+        renderJourneysTable(journeys);
+    } catch (e) {
+        showToast(`Error loading journeys: ${e.message}`, 'error');
+    }
+}
+
+function renderJourneysTable(journeys) {
+    const tbody = document.getElementById('journeysTableBody');
+    if (!journeys || journeys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--gray-500); padding:40px;">No journeys saved yet</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = journeys.map(j => {
+        const statusClass = `status-${j.status}`;
+        const isPaused = j.status === 'paused';
+        const isStopped = j.status === 'stopped';
+
+        let actions = '';
+        if (!isStopped) {
+            if (isPaused) {
+                actions += `<button class="btn btn-success btn-sm" onclick="updateJourneyStatus(${j.id}, 'active')">&#9654; Resume</button> `;
+            } else {
+                actions += `<button class="btn btn-warning btn-sm" onclick="updateJourneyStatus(${j.id}, 'paused')">&#10074;&#10074; Pause</button> `;
+            }
+            actions += `<button class="btn btn-danger btn-sm" onclick="updateJourneyStatus(${j.id}, 'stopped')">&#9632; Stop</button>`;
+        }
+
+        return `<tr>
+            <td><a class="journey-link" onclick="loadJourney(${j.id})">${j.journey_name}</a></td>
+            <td>${j.campaign_id}</td>
+            <td>${j.country}</td>
+            <td>${(j.total_audience || 0).toLocaleString()}</td>
+            <td>${(j.volume_per_day || 0).toLocaleString()}</td>
+            <td>${j.start_date || '-'}</td>
+            <td>${j.end_date || '-'}</td>
+            <td><span class="status-badge ${statusClass}">${j.status}</span></td>
+            <td>${j.total_versions || 0}</td>
+            <td>${actions}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function loadJourney(id) {
+    try {
+        const resp = await fetch(`/api/journeys/${id}`);
+        const journey = await resp.json();
+
+        if (journey.error) {
+            showToast(journey.error, 'error');
+            return;
+        }
+
+        // Switch to builder tab
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+        document.querySelector('[data-tab="builder"]').classList.add('active');
+        document.getElementById('tab-builder').classList.add('active');
+
+        // Fill form fields
+        document.getElementById('campaignId').value = journey.campaign_id || '';
+        document.getElementById('sfmcJourneyName').value = journey.sfmc_journey_name || '';
+        document.getElementById('country').value = journey.country || '';
+        document.getElementById('totalAudience').value = journey.total_audience || '';
+        document.getElementById('volumePerDay').value = journey.volume_per_day || '';
+        document.getElementById('startDate').value = journey.start_date || '';
+
+        // Excluded days
+        if (journey.excluded_days) {
+            const days = journey.excluded_days.split(',').map(d => d.trim());
+            document.querySelectorAll('.checkbox-group input[type="checkbox"]').forEach(cb => {
+                cb.checked = days.includes(cb.value);
+            });
+        }
+        document.getElementById('excludedDates').value = journey.excluded_dates || '';
+
+        // Load latest version
+        if (journey.versions && journey.versions.length > 0) {
+            const latestVersion = journey.versions[0];
+            const emailConfigs = typeof latestVersion.email_configs === 'string' ?
+                JSON.parse(latestVersion.email_configs) : latestVersion.email_configs;
+            const cadence = typeof latestVersion.cadence_data === 'string' ?
+                JSON.parse(latestVersion.cadence_data) : latestVersion.cadence_data;
+
+            if (emailConfigs && emailConfigs.length > 0) {
+                emails = emailConfigs;
+                emailIdCounter = Math.max(...emails.map(e => e.id), 0);
+                renderEmails();
+            }
+
+            if (cadence && cadence.length > 0) {
+                cadenceData = cadence;
+                renderCadenceTable();
+                document.getElementById('cadenceCard').style.display = 'block';
+                document.getElementById('sfmcSection').style.display = 'block';
+                document.getElementById('statsBar').style.display = 'flex';
+
+                const mainSendDays = Math.ceil(
+                    (journey.total_audience || 0) / (journey.volume_per_day || 1)
+                );
+                updateStats(cadenceData, mainSendDays);
+            }
+
+            if (latestVersion.sfmc_data) {
+                const sfmc = typeof latestVersion.sfmc_data === 'string' ?
+                    JSON.parse(latestVersion.sfmc_data) : latestVersion.sfmc_data;
+                if (sfmc) {
+                    sfmcActualData = sfmc;
+                    document.getElementById('sfmcDataInput').value = JSON.stringify(sfmc, null, 2);
+                }
+            }
+        }
+
+        currentJourneyId = id;
+        showToast(`Loaded journey: ${journey.journey_name}`, 'success');
+    } catch (e) {
+        showToast(`Error loading journey: ${e.message}`, 'error');
+    }
+}
+
+async function updateJourneyStatus(id, status) {
+    try {
+        const resp = await fetch(`/api/journeys/${id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast(`Journey ${status}`, 'success');
+            loadJourneys();
+        }
+    } catch (e) {
+        showToast(`Error: ${e.message}`, 'error');
+    }
+}
+
+// ============ COPY FUNCTIONS ============
+function copyForJira() {
+    if (cadenceData.length === 0) {
+        showToast('Generate cadence first', 'error');
+        return;
+    }
+
+    const campaignId = document.getElementById('campaignId').value;
+    const sfmcName = document.getElementById('sfmcJourneyName').value;
+    const totalAudience = document.getElementById('totalAudience').value;
+    const volumePerDay = document.getElementById('volumePerDay').value;
+
+    let text = `h3. Journey Cadence: ${sfmcName || campaignId}\n\n`;
+    text += `||Parameter||Value||\n`;
+    text += `|Campaign ID|${campaignId}|\n`;
+    text += `|SFMC Journey|${sfmcName}|\n`;
+    text += `|Total Audience|${parseInt(totalAudience).toLocaleString()}|\n`;
+    text += `|Volume/Day|${parseInt(volumePerDay).toLocaleString()}|\n`;
+    text += `|Start Date|${document.getElementById('startDate').value}|\n`;
+    text += `|Main Sends|${getMainSendCount()}|\n`;
+    text += `|Reminders|${getReminderCount()}|\n\n`;
+
+    const allEmails = [...getMainSends(), ...emails.filter(e => e.type === 'reminder')];
+
+    text += `||Day||Date||Day||`;
+    allEmails.forEach(e => { text += `${e.name}||`; });
+    text += `Total||\n`;
+
+    cadenceData.forEach(day => {
+        if (day.excluded) return;
+        text += `|${day.dayNumber}|${day.dateStr}|${day.dayName}|`;
+        let dayTotal = 0;
+        allEmails.forEach(email => {
+            const emailData = day.emails.find(e => e.emailId === email.id);
+            if (!emailData) { text += '-|'; return; }
+            if (emailData.isWaiting) { text += '_wait_|'; return; }
+            if (emailData.volume > 0) {
+                text += `${emailData.volume.toLocaleString()}|`;
+                dayTotal += emailData.volume;
+            } else {
+                text += '-|';
+            }
+        });
+        text += `${dayTotal > 0 ? dayTotal.toLocaleString() : '-'}|\n`;
+    });
+
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied Jira format to clipboard', 'success');
+    });
+}
+
+function copyAsCSV() {
+    if (cadenceData.length === 0) {
+        showToast('Generate cadence first', 'error');
+        return;
+    }
+
+    const allEmails = [...getMainSends(), ...emails.filter(e => e.type === 'reminder')];
+
+    let csv = 'Day #,Date,Day,';
+    csv += allEmails.map(e => e.name).join(',');
+    csv += ',Total Volume,Status\n';
+
+    cadenceData.forEach(day => {
+        csv += `${day.dayNumber},${day.dateStr},${day.dayName},`;
+        let dayTotal = 0;
+        allEmails.forEach(email => {
+            const emailData = day.emails.find(e => e.emailId === email.id);
+            if (!emailData) { csv += '0,'; return; }
+            if (emailData.isWaiting) { csv += 'wait,'; return; }
+            csv += `${emailData.volume || 0},`;
+            dayTotal += emailData.volume || 0;
+        });
+        const status = day.excluded ? 'Excluded' : day.paused ? 'Paused' : 'Active';
+        csv += `${dayTotal},${status}\n`;
+    });
+
+    navigator.clipboard.writeText(csv).then(() => {
+        showToast('Copied CSV to clipboard', 'success');
+    });
+}
+
+// ============ UTILITIES ============
+function getExcludedDays() {
+    const checkboxes = document.querySelectorAll('.checkbox-group input[type="checkbox"]:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+function getExcludedDates() {
+    const input = document.getElementById('excludedDates').value.trim();
+    if (!input) return [];
+    return input.split(',').map(d => d.trim()).filter(d => d);
+}
+
+function formatDate(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function getDayName(dayOfWeek) {
+    return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek];
+}
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        toast.style.transition = 'all 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+</script>
+</body>
+</html>
