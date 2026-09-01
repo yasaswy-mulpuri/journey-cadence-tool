@@ -1273,23 +1273,23 @@ function copyForJira() {
     const sfmcName = document.getElementById('sfmcJourneyName').value;
     const totalAudience = document.getElementById('totalAudience').value;
     const volumePerDay = document.getElementById('volumePerDay').value;
+    const startDate = document.getElementById('startDate').value;
 
+    const allEmails = [...getMainSends(), ...emails.filter(e => e.type === 'reminder')];
+
+    // ----- Build plain-text wiki markup (fallback) -----
     let text = `h3. Journey Cadence: ${sfmcName || campaignId}\n\n`;
     text += `||Parameter||Value||\n`;
     text += `|Campaign ID|${campaignId}|\n`;
     text += `|SFMC Journey|${sfmcName}|\n`;
     text += `|Total Audience|${parseInt(totalAudience).toLocaleString()}|\n`;
     text += `|Volume/Day|${parseInt(volumePerDay).toLocaleString()}|\n`;
-    text += `|Start Date|${document.getElementById('startDate').value}|\n`;
+    text += `|Start Date|${startDate}|\n`;
     text += `|Main Sends|${getMainSendCount()}|\n`;
     text += `|Reminders|${getReminderCount()}|\n\n`;
-
-    const allEmails = [...getMainSends(), ...emails.filter(e => e.type === 'reminder')];
-
     text += `||Day||Date||Day||`;
     allEmails.forEach(e => { text += `${e.name}||`; });
     text += `Total||\n`;
-
     cadenceData.forEach(day => {
         if (day.excluded) return;
         text += `|${day.dayNumber}|${day.dateStr}|${day.dayName}|`;
@@ -1297,7 +1297,7 @@ function copyForJira() {
         allEmails.forEach(email => {
             const emailData = day.emails.find(e => e.emailId === email.id);
             if (!emailData) { text += '-|'; return; }
-            if (emailData.isWaiting) { text += '_wait_|'; return; }
+            if (emailData.isWaiting) { text += 'wait|'; return; }
             if (emailData.volume > 0) {
                 text += `${emailData.volume.toLocaleString()}|`;
                 dayTotal += emailData.volume;
@@ -1308,9 +1308,64 @@ function copyForJira() {
         text += `${dayTotal > 0 ? dayTotal.toLocaleString() : '-'}|\n`;
     });
 
-    navigator.clipboard.writeText(text).then(() => {
-        showToast('Copied Jira format to clipboard', 'success');
+    // ----- Build rich HTML table (renders in Jira visual editor) -----
+    const cellStyle = 'border:1px solid #ccc;padding:6px 10px;text-align:left;';
+    const headStyle = 'border:1px solid #ccc;padding:6px 10px;text-align:left;background:#f4f5f7;font-weight:bold;';
+
+    let html = `<h3>Journey Cadence: ${escapeHtml(sfmcName || campaignId)}</h3>`;
+    html += `<table style="border-collapse:collapse;"><tbody>`;
+    html += `<tr><th style="${headStyle}">Parameter</th><th style="${headStyle}">Value</th></tr>`;
+    html += `<tr><td style="${cellStyle}">Campaign ID</td><td style="${cellStyle}">${escapeHtml(campaignId)}</td></tr>`;
+    html += `<tr><td style="${cellStyle}">SFMC Journey</td><td style="${cellStyle}">${escapeHtml(sfmcName)}</td></tr>`;
+    html += `<tr><td style="${cellStyle}">Total Audience</td><td style="${cellStyle}">${parseInt(totalAudience).toLocaleString()}</td></tr>`;
+    html += `<tr><td style="${cellStyle}">Volume/Day</td><td style="${cellStyle}">${parseInt(volumePerDay).toLocaleString()}</td></tr>`;
+    html += `<tr><td style="${cellStyle}">Start Date</td><td style="${cellStyle}">${escapeHtml(startDate)}</td></tr>`;
+    html += `<tr><td style="${cellStyle}">Main Sends</td><td style="${cellStyle}">${getMainSendCount()}</td></tr>`;
+    html += `<tr><td style="${cellStyle}">Reminders</td><td style="${cellStyle}">${getReminderCount()}</td></tr>`;
+    html += `</tbody></table><br/>`;
+
+    html += `<table style="border-collapse:collapse;"><tbody>`;
+    html += `<tr><th style="${headStyle}">Day #</th><th style="${headStyle}">Date</th><th style="${headStyle}">Day</th>`;
+    allEmails.forEach(e => { html += `<th style="${headStyle}">${escapeHtml(e.name)}</th>`; });
+    html += `<th style="${headStyle}">Total</th></tr>`;
+
+    cadenceData.forEach(day => {
+        if (day.excluded) return;
+        html += `<tr><td style="${cellStyle}">${day.dayNumber}</td><td style="${cellStyle}">${day.dateStr}</td><td style="${cellStyle}">${day.dayName}</td>`;
+        let dayTotal = 0;
+        allEmails.forEach(email => {
+            const emailData = day.emails.find(e => e.emailId === email.id);
+            if (!emailData) { html += `<td style="${cellStyle}">-</td>`; return; }
+            if (emailData.isWaiting) { html += `<td style="${cellStyle}color:#888;font-style:italic;">wait</td>`; return; }
+            if (emailData.volume > 0) {
+                html += `<td style="${cellStyle}">${emailData.volume.toLocaleString()}</td>`;
+                dayTotal += emailData.volume;
+            } else {
+                html += `<td style="${cellStyle}">-</td>`;
+            }
+        });
+        html += `<td style="${cellStyle}font-weight:bold;">${dayTotal > 0 ? dayTotal.toLocaleString() : '-'}</td></tr>`;
     });
+    html += `</tbody></table>`;
+
+    // ----- Write both HTML and plain text to clipboard -----
+    try {
+        const blobHtml = new Blob([html], { type: 'text/html' });
+        const blobText = new Blob([text], { type: 'text/plain' });
+        const item = new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText });
+        navigator.clipboard.write([item]).then(() => {
+            showToast('Copied formatted table - paste into Jira', 'success');
+        }).catch(() => {
+            navigator.clipboard.writeText(text).then(() => showToast('Copied (text format)', 'success'));
+        });
+    } catch (e) {
+        navigator.clipboard.writeText(text).then(() => showToast('Copied (text format)', 'success'));
+    }
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function copyAsCSV() {
