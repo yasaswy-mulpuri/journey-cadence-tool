@@ -195,7 +195,7 @@
 
         .email-row {
             display: grid;
-            grid-template-columns: 180px 200px 100px 80px 160px 160px 32px;
+            grid-template-columns: 160px 170px 90px 210px 140px 150px 32px;
             gap: 8px;
             align-items: center;
             padding: 8px;
@@ -309,6 +309,22 @@
         .cadence-table tr.weekend { background: #fafafa; color: var(--gray-400); }
 
         .cadence-table .wait-cell { font-style: italic; color: var(--gray-400); }
+
+        .pause-panel {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .pause-panel .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 4px;
+        }
+        .cadence-table tr.paused td { background: #fff8e1; color: #b06000; font-style: italic; }
         .cadence-table .volume-cell { font-weight: 500; }
 
         /* SFMC Section */
@@ -504,11 +520,11 @@
                         <button class="btn btn-warning btn-sm" onclick="addReminder()">+ Add Reminder</button>
                     </div>
                 </div>
-                <div class="email-row-labels" style="display:grid; grid-template-columns: 180px 200px 100px 80px 160px 160px 32px; gap:8px; padding:4px 8px; font-size:11px; color:var(--gray-500); text-transform:uppercase; font-weight:600;">
+                <div class="email-row-labels" style="display:grid; grid-template-columns: 160px 170px 90px 210px 140px 150px 32px; gap:8px; padding:4px 8px; font-size:11px; color:var(--gray-500); text-transform:uppercase; font-weight:600;">
                     <span>Email Name</span>
                     <span>SFMC Email Name</span>
                     <span>Type</span>
-                    <span>Wait (days)</span>
+                    <span>Schedule</span>
                     <span>Parent Send</span>
                     <span>Condition</span>
                     <span></span>
@@ -541,7 +557,44 @@
         <div class="card" id="cadenceCard" style="display:none;">
             <div class="card-header">
                 <span class="card-title">Cadence Schedule</span>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-warning btn-sm" onclick="togglePausePanel()">Pause Campaign</button>
+                    <button class="btn btn-success btn-sm" id="resumeBtn" style="display:none;" onclick="toggleResumePanel()">Resume Campaign</button>
+                </div>
             </div>
+
+            <!-- Pause Panel -->
+            <div id="pausePanel" class="pause-panel" style="display:none;">
+                <div style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+                    <div class="form-group" style="margin:0;">
+                        <label>Pause From Date</label>
+                        <input type="date" id="pauseFromDate" style="width:160px;">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Number of Days to Pause</label>
+                        <input type="number" id="pauseDuration" min="1" max="90" value="7" style="width:120px;">
+                    </div>
+                    <button class="btn btn-warning btn-sm" onclick="applyPause()">Apply Pause</button>
+                    <button class="btn btn-outline btn-sm" onclick="togglePausePanel()">Cancel</button>
+                </div>
+                <p style="font-size:12px; color:var(--gray-600); margin-top:8px;">
+                    All sends scheduled on or after the pause date will shift forward by the pause duration (dates extend proportionally). Excluded days are respected.
+                </p>
+            </div>
+
+            <!-- Resume Panel -->
+            <div id="resumePanel" class="pause-panel" style="display:none;">
+                <p style="font-size:13px; color:var(--gray-700); margin-bottom:10px; font-weight:600;">Adjust reminder schedule on resume (optional)</p>
+                <div id="resumeReminderList"></div>
+                <div style="margin-top:10px; display:flex; gap:8px;">
+                    <button class="btn btn-success btn-sm" onclick="applyResume()">Apply & Regenerate</button>
+                    <button class="btn btn-outline btn-sm" onclick="toggleResumePanel()">Cancel</button>
+                </div>
+                <p style="font-size:12px; color:var(--gray-600); margin-top:8px;">
+                    You can change each reminder's schedule (days offset or a specific date) before regenerating the cadence from the current settings.
+                </p>
+            </div>
+
             <div class="table-container" id="cadenceTableContainer"></div>
         </div>
 
@@ -665,7 +718,9 @@ function addReminder() {
         name: `Reminder ${getReminderCount() + 1}`,
         sfmcName: '',
         type: 'reminder',
-        wait: 7,
+        waitType: 'days',   // 'days' or 'date'
+        wait: 7,            // used when waitType === 'days'
+        waitDate: '',       // used when waitType === 'date' (YYYY-MM-DD)
         parentId: mainSends[0].id,
         condition: 'non-openers'
     };
@@ -723,12 +778,22 @@ function renderEmails() {
                     onchange="updateEmail(${email.id}, 'sfmcName', this.value)">
                 <span class="badge ${isMain ? 'badge-main' : 'badge-reminder'}">${isMain ? 'Main Send' : 'Reminder'}</span>
                 ${isMain ? '<span style="color:var(--gray-400); font-size:12px;">-</span>' :
-                    `<input type="number" value="${email.wait}" min="1" max="30" style="width:60px;"
-                        onchange="updateEmail(${email.id}, 'wait', parseInt(this.value))">`}
+                    `<div style="display:flex; gap:4px; align-items:center;">
+                        <select style="width:70px;" onchange="updateWaitType(${email.id}, this.value)">
+                            <option value="days" ${email.waitType !== 'date' ? 'selected' : ''}>Days</option>
+                            <option value="date" ${email.waitType === 'date' ? 'selected' : ''}>Date</option>
+                        </select>
+                        ${email.waitType === 'date' ?
+                            `<input type="date" value="${email.waitDate || ''}" style="width:130px;"
+                                onchange="updateEmail(${email.id}, 'waitDate', this.value)">` :
+                            `<input type="number" value="${email.wait}" min="1" max="60" style="width:55px;" title="Days after parent send"
+                                onchange="updateEmail(${email.id}, 'wait', parseInt(this.value))">`}
+                    </div>`}
                 ${isMain ? '<span style="color:var(--gray-400); font-size:12px;">-</span>' :
                     `<select onchange="updateEmail(${email.id}, 'parentId', parseInt(this.value))">${parentOptions}</select>`}
                 ${isMain ? '<span style="color:var(--gray-400); font-size:12px;">-</span>' :
                     `<select onchange="updateEmail(${email.id}, 'condition', this.value)">
+                        <option value="all-audience" ${email.condition === 'all-audience' ? 'selected' : ''}>All Audience</option>
                         <option value="non-openers" ${email.condition === 'non-openers' ? 'selected' : ''}>Non-Openers</option>
                         <option value="non-clickers" ${email.condition === 'non-clickers' ? 'selected' : ''}>Non-Clickers</option>
                         <option value="openers" ${email.condition === 'openers' ? 'selected' : ''}>Openers</option>
@@ -745,6 +810,14 @@ function renderEmails() {
 function updateEmail(id, field, value) {
     const email = emails.find(e => e.id === id);
     if (email) email[field] = value;
+}
+
+function updateWaitType(id, value) {
+    const email = emails.find(e => e.id === id);
+    if (!email) return;
+    email.waitType = value;
+    // Re-render so the correct input (days number vs date picker) shows
+    renderEmails();
 }
 
 // ============ CADENCE GENERATION ============
@@ -773,9 +846,21 @@ function generateCadence() {
     const mainSendDays = Math.ceil(totalAudience / volumePerDay);
     const volumePerMainSendPerDay = Math.floor(volumePerDay / mainSends.length);
 
-    // Get reminders and find max wait
+    // Get reminders
     const reminders = emails.filter(e => e.type === 'reminder');
-    const maxWait = reminders.length > 0 ? Math.max(...reminders.map(r => r.wait)) : 0;
+
+    // Resolve each reminder's effective wait (in active days).
+    // For 'days' mode, use the entered value directly.
+    // For 'date' mode, count active (non-excluded) days from start date up to the chosen date.
+    reminders.forEach(rem => {
+        if (rem.waitType === 'date' && rem.waitDate) {
+            rem._effectiveWait = activeDaysBetween(startDate, rem.waitDate, excludedDays, excludedDates);
+        } else {
+            rem._effectiveWait = rem.wait || 0;
+        }
+    });
+
+    const maxWait = reminders.length > 0 ? Math.max(...reminders.map(r => r._effectiveWait || 0)) : 0;
 
     // Total active days needed (main send days + max reminder continuation)
     const totalActiveDays = mainSendDays + maxWait;
@@ -836,15 +921,16 @@ function generateCadence() {
                 const parentMainSend = mainSends.find(ms => ms.id === rem.parentId);
                 if (!parentMainSend) return;
 
+                const effWait = rem._effectiveWait || 0;
                 let volume = 0;
                 let isWaiting = false;
 
-                if (activeDay <= rem.wait) {
+                if (activeDay <= effWait) {
                     // Still in wait period
                     isWaiting = true;
                 } else {
                     // Active reminder day
-                    const reminderActiveDay = activeDay - rem.wait;
+                    const reminderActiveDay = activeDay - effWait;
                     if (reminderActiveDay >= 1 && reminderActiveDay <= mainSendDays) {
                         // Get the parent main send volume from that day
                         const parentDayVolume = (reminderActiveDay === mainSendDays) ?
@@ -864,7 +950,9 @@ function generateCadence() {
                     isFromSfmc: false,
                     condition: rem.condition,
                     parentId: rem.parentId,
-                    wait: rem.wait
+                    wait: effWait,
+                    waitType: rem.waitType || 'days',
+                    waitDate: rem.waitDate || ''
                 });
             });
         }
@@ -879,11 +967,164 @@ function generateCadence() {
     document.getElementById('cadenceCard').style.display = 'block';
     document.getElementById('sfmcSection').style.display = 'block';
     document.getElementById('statsBar').style.display = 'flex';
+    // Reset pause/resume UI state on fresh generation
+    document.getElementById('pausePanel').style.display = 'none';
+    document.getElementById('resumePanel').style.display = 'none';
+    document.getElementById('resumeBtn').style.display = 'none';
     showToast('Cadence generated successfully', 'success');
+}
+
+// ============ PAUSE / RESUME ============
+function togglePausePanel() {
+    const panel = document.getElementById('pausePanel');
+    const show = panel.style.display === 'none';
+    panel.style.display = show ? 'block' : 'none';
+    document.getElementById('resumePanel').style.display = 'none';
+    if (show) {
+        // Default the pause-from date to the first active day
+        const firstActive = cadenceData.find(d => !d.excluded && !d.paused);
+        if (firstActive) document.getElementById('pauseFromDate').value = firstActive.dateStr;
+    }
+}
+
+function applyPause() {
+    const pauseFrom = document.getElementById('pauseFromDate').value;
+    const pauseDuration = parseInt(document.getElementById('pauseDuration').value);
+
+    if (!pauseFrom || !pauseDuration || pauseDuration < 1) {
+        showToast('Enter a valid pause date and duration', 'error');
+        return;
+    }
+    if (cadenceData.length === 0) {
+        showToast('Generate a cadence first', 'error');
+        return;
+    }
+
+    const excludedDays = getExcludedDays();
+    const excludedDates = getExcludedDates();
+
+    // Collect the send-day entries (non-excluded, non-paused) that fall ON OR AFTER the pause date.
+    // These will be shifted forward by pauseDuration calendar days, then re-laid onto active days.
+    const shiftIndex = cadenceData.findIndex(d => d.dateStr >= pauseFrom && !d.excluded);
+    if (shiftIndex === -1) {
+        showToast('Pause date is after the cadence ends', 'error');
+        return;
+    }
+
+    // Keep the portion before the pause untouched
+    const kept = cadenceData.slice(0, shiftIndex);
+    // The entries to shift (preserve their email payloads, we only re-map dates)
+    const toShift = cadenceData.slice(shiftIndex).filter(d => !d.excluded);
+
+    // Build the paused block: pauseDuration calendar days starting at pauseFrom
+    const pausedBlock = [];
+    let cursor = new Date(pauseFrom + 'T00:00:00');
+    for (let i = 0; i < pauseDuration; i++) {
+        const dow = cursor.getDay();
+        pausedBlock.push({
+            dayNumber: '-',
+            dateStr: formatDate(cursor),
+            dayName: getDayName(dow),
+            excluded: false,
+            paused: true,
+            emails: []
+        });
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    // Now re-lay the shifted send entries onto the calendar AFTER the paused block,
+    // skipping excluded days. Each shifted entry keeps its emails but gets a new date.
+    const rebuilt = [...kept, ...pausedBlock];
+    let layCursor = new Date(cursor); // day right after the paused block
+    let shiftPos = 0;
+
+    while (shiftPos < toShift.length) {
+        const dow = layCursor.getDay();
+        const ds = formatDate(layCursor);
+        const isExcluded = excludedDays.includes(dow) || excludedDates.includes(ds);
+
+        if (isExcluded) {
+            rebuilt.push({
+                dayNumber: '-',
+                dateStr: ds,
+                dayName: getDayName(dow),
+                excluded: true,
+                paused: false,
+                emails: []
+            });
+        } else {
+            const original = toShift[shiftPos];
+            rebuilt.push({
+                dayNumber: null, // renumbered below
+                dateStr: ds,
+                dayName: getDayName(dow),
+                excluded: false,
+                paused: false,
+                emails: original.emails
+            });
+            shiftPos++;
+        }
+        layCursor.setDate(layCursor.getDate() + 1);
+    }
+
+    // Renumber active days
+    let activeNum = 0;
+    rebuilt.forEach(d => {
+        if (!d.excluded && !d.paused) {
+            activeNum++;
+            d.dayNumber = activeNum;
+        } else {
+            d.dayNumber = '-';
+        }
+    });
+
+    cadenceData = rebuilt;
+    renderCadenceTable();
+    updateStats(cadenceData, null);
+    document.getElementById('pausePanel').style.display = 'none';
+    document.getElementById('resumeBtn').style.display = 'inline-flex';
+    showToast(`Campaign paused ${pauseDuration} day(s) from ${pauseFrom}. Dates shifted forward.`, 'success');
+}
+
+function toggleResumePanel() {
+    const panel = document.getElementById('resumePanel');
+    const show = panel.style.display === 'none';
+    panel.style.display = show ? 'block' : 'none';
+    document.getElementById('pausePanel').style.display = 'none';
+    if (show) renderResumeReminderList();
+}
+
+function renderResumeReminderList() {
+    const container = document.getElementById('resumeReminderList');
+    const reminders = emails.filter(e => e.type === 'reminder');
+    if (reminders.length === 0) {
+        container.innerHTML = '<p style="font-size:13px; color:var(--gray-500);">No reminders configured.</p>';
+        return;
+    }
+    container.innerHTML = reminders.map(rem => `
+        <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+            <span style="min-width:150px; font-size:13px; font-weight:600;">${rem.name}</span>
+            <select style="width:80px;" onchange="updateWaitType(${rem.id}, this.value); renderResumeReminderList();">
+                <option value="days" ${rem.waitType !== 'date' ? 'selected' : ''}>Days</option>
+                <option value="date" ${rem.waitType === 'date' ? 'selected' : ''}>Date</option>
+            </select>
+            ${rem.waitType === 'date' ?
+                `<input type="date" value="${rem.waitDate || ''}" onchange="updateEmail(${rem.id}, 'waitDate', this.value)">` :
+                `<input type="number" value="${rem.wait}" min="1" max="60" style="width:70px;" onchange="updateEmail(${rem.id}, 'wait', parseInt(this.value))"> <span style="font-size:12px; color:var(--gray-500);">days after parent send</span>`}
+        </div>
+    `).join('');
+}
+
+function applyResume() {
+    // Regenerate the cadence from the current (possibly updated) reminder settings.
+    document.getElementById('resumePanel').style.display = 'none';
+    generateCadence();
+    showToast('Cadence regenerated with updated reminder schedule', 'success');
 }
 
 function calculateReminderVolume(parentVolume, condition, openRate, clickRate) {
     switch (condition) {
+        case 'all-audience': return parentVolume;
         case 'non-openers': return Math.round(parentVolume * (1 - openRate));
         case 'non-clickers': return Math.round(parentVolume * (1 - clickRate));
         case 'openers': return Math.round(parentVolume * openRate);
@@ -1011,8 +1252,9 @@ function applySfmcData() {
                 const reminder = emails.find(e => e.id === emailEntry.emailId);
                 if (!reminder) return;
 
-                // Find the parent main send's day (current active day - wait)
-                const parentDay = findParentDay(day, reminder);
+                // Find the parent main send's day (current active day - effective wait)
+                const effWait = (emailEntry.wait !== undefined) ? emailEntry.wait : reminder.wait;
+                const parentDay = findParentDay(day, effWait);
                 if (!parentDay) return;
 
                 const parentEmail = parentDay.emails.find(e => e.emailId === reminder.parentId);
@@ -1025,6 +1267,7 @@ function applySfmcData() {
                     const sends = parentEmail.volume || 0;
 
                     switch (reminder.condition) {
+                        case 'all-audience': emailEntry.volume = sends; break;
                         case 'non-openers': emailEntry.volume = sends - actualOpen; break;
                         case 'non-clickers': emailEntry.volume = sends - actualClick; break;
                         case 'openers': emailEntry.volume = actualOpen; break;
@@ -1046,15 +1289,15 @@ function applySfmcData() {
     }
 }
 
-function findParentDay(currentDay, reminder) {
+function findParentDay(currentDay, effWait) {
     // Find what active day number this current day is
     let currentActiveDayNum = 0;
     for (const day of cadenceData) {
         if (!day.excluded && !day.paused) currentActiveDayNum++;
         if (day === currentDay) break;
     }
-    // The parent day is (currentActiveDay - wait)
-    const targetActiveDay = currentActiveDayNum - reminder.wait;
+    // The parent day is (currentActiveDay - effective wait)
+    const targetActiveDay = currentActiveDayNum - (effWait || 0);
     if (targetActiveDay < 1) return null;
 
     let count = 0;
@@ -1420,6 +1663,27 @@ function formatDate(date) {
 
 function getDayName(dayOfWeek) {
     return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek];
+}
+
+// Count active (non-excluded) days between a start date (active day 1) and a target date.
+// Returns the number of active days BEFORE the target, i.e. the wait offset.
+// Example: if start = target, returns 0. If target is the next active day, returns 1.
+function activeDaysBetween(startDateStr, targetDateStr, excludedDays, excludedDates) {
+    const start = new Date(startDateStr + 'T00:00:00');
+    const target = new Date(targetDateStr + 'T00:00:00');
+    if (target <= start) return 0;
+
+    let activeCount = 0;
+    let cursor = new Date(start);
+    // Walk from start up to (but not including) the target date, counting active days
+    while (cursor < target) {
+        const dow = cursor.getDay();
+        const ds = formatDate(cursor);
+        const isExcluded = excludedDays.includes(dow) || excludedDates.includes(ds);
+        if (!isExcluded) activeCount++;
+        cursor.setDate(cursor.getDate() + 1);
+    }
+    return activeCount;
 }
 
 function showToast(message, type = 'info') {
