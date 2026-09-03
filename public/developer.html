@@ -851,129 +851,196 @@ function generateCadence() {
 
     const excludedDays = getExcludedDays();
     const excludedDates = getExcludedDates();
-
-    // Calculate main send days
-    const mainSendDays = Math.ceil(totalAudience / volumePerDay);
-    const volumePerMainSendPerDay = Math.floor(volumePerDay / mainSends.length);
-
-    // Get reminders
     const reminders = emails.filter(e => e.type === 'reminder');
 
-    // Resolve each reminder's effective wait (in active days).
-    // For 'days' mode, use the entered value directly.
-    // For 'date' mode, count active (non-excluded) days from start date up to the chosen date.
-    reminders.forEach(rem => {
-        if (rem.waitType === 'date' && rem.waitDate) {
-            rem._effectiveWait = activeDaysBetween(startDate, rem.waitDate, excludedDays, excludedDates);
-        } else {
-            rem._effectiveWait = rem.wait || 0;
-        }
+    // Helpers
+    function isExcludedDate(d) {
+        return excludedDays.includes(d.getDay()) || excludedDates.includes(formatDate(d));
+    }
+    // Add N calendar days to a YYYY-MM-DD date string
+    function addCalendarDays(dateStr, n) {
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() + n);
+        return formatDate(d);
+    }
+
+    // ---- Daily-cap simulation ----
+    // Volume/Day is a HARD daily cap that covers BOTH main sends and reminders.
+    // Priority order each day:
+    //   1) Reminders (scheduled for that calendar date) + any carried-over reminder overflow.
+    //      If reminders exceed the cap, they are throttled and the excess carries to the next day.
+    //   2) Main sends fill whatever cap capacity remains (main sends skip excluded days).
+    // Main-send audience that cannot fit spills into more days, extending the schedule.
+    //
+    // Reminders fire on a specific CALENDAR date = parentBatchDate + wait (calendar days),
+    // or on the reminder's chosen specific date. Excluded days do NOT apply to reminders.
+
+    const perMainSendBase = Math.floor(volumePerDay / mainSends.length);
+
+    // Remaining audience to send for each main send
+    const mainRemaining = {};
+    mainSends.forEach((ms, i) => {
+        // Distribute total audience across main sends as evenly as possible
+        mainRemaining[ms.id] = Math.floor(totalAudience / mainSends.length);
     });
+    // Put any rounding remainder on the first main send
+    const distributed = Object.values(mainRemaining).reduce((a, b) => a + b, 0);
+    if (mainSends.length > 0) mainRemaining[mainSends[0].id] += (totalAudience - distributed);
 
-    const maxWait = reminders.length > 0 ? Math.max(...reminders.map(r => r._effectiveWait || 0)) : 0;
+    // Scheduled reminder batches: { fireDate: [{ reminderId, volume } ...] }
+    const reminderSchedule = {};
+    function scheduleReminder(fireDate, reminderId, volume) {
+        if (volume <= 0) return;
+        if (!reminderSchedule[fireDate]) reminderSchedule[fireDate] = [];
+        reminderSchedule[fireDate].push({ reminderId, volume });
+    }
 
-    // Total active days needed (main send days + max reminder continuation)
-    const totalActiveDays = mainSendDays + maxWait;
+    // Reminder overflow carried from previous day: { reminderId: volume }
+    let reminderCarry = {};
 
-    // Build calendar - map active days to actual dates
     const calendar = [];
     let currentDate = new Date(startDate + 'T00:00:00');
-    let activeDayCount = 0;
-    let calendarDayCount = 0;
+    let dayNumber = 0;
+    let safety = 0;
+    const MAX_DAYS = 3650; // safety cap (~10 years)
 
-    while (activeDayCount < totalActiveDays) {
-        calendarDayCount++;
+    function mainAudienceRemaining() {
+        return Object.values(mainRemaining).reduce((a, b) => a + b, 0);
+    }
+    function pendingReminderVolume() {
+        let sum = Object.values(reminderCarry).reduce((a, b) => a + b, 0);
+        Object.keys(reminderSchedule).forEach(fd => {
+            reminderSchedule[fd].forEach(r => sum += r.volume);
+        });
+        return sum;
+    }
+
+    while ((mainAudienceRemaining() > 0 || pendingReminderVolume() > 0) && safety < MAX_DAYS) {
+        safety++;
         const dateStr = formatDate(currentDate);
-        const dayOfWeek = currentDate.getDay();
-        const dayName = getDayName(dayOfWeek);
-
-        const isExcludedDay = excludedDays.includes(dayOfWeek);
-        const isExcludedDate = excludedDates.includes(dateStr);
-        const isExcluded = isExcludedDay || isExcludedDate;
+        const dow = currentDate.getDay();
+        const excluded = isExcludedDate(currentDate);
 
         const dayEntry = {
-            dayNumber: isExcluded ? '-' : activeDayCount + 1,
+            dayNumber: '-',
             dateStr: dateStr,
-            dayName: dayName,
-            excluded: isExcluded,
+            dayName: getDayName(dow),
+            excluded: excluded,
             paused: false,
             emails: []
         };
 
-        if (!isExcluded) {
-            activeDayCount++;
-            const activeDay = activeDayCount;
+        let capLeft = volumePerDay;
 
-            // Main sends - only for the first mainSendDays active days
+        // ---- 1) Place reminders due today (carry + scheduled) ----
+        // Merge carry-over and today's scheduled reminders by reminderId
+        const dueByReminder = {};
+        Object.keys(reminderCarry).forEach(rid => {
+            dueByReminder[rid] = (dueByReminder[rid] || 0) + reminderCarry[rid];
+        });
+        reminderCarry = {};
+        (reminderSchedule[dateStr] || []).forEach(r => {
+            dueByReminder[r.reminderId] = (dueByReminder[r.reminderId] || 0) + r.volume;
+        });
+        delete reminderSchedule[dateStr];
+
+        // Total reminder demand today
+        let reminderDemand = Object.values(dueByReminder).reduce((a, b) => a + b, 0);
+
+        reminders.forEach(rem => {
+            const due = dueByReminder[rem.id] || 0;
+            if (due <= 0) return;
+
+            let sendNow = due;
+            // Throttle reminders proportionally if they exceed the cap
+            if (reminderDemand > volumePerDay) {
+                sendNow = Math.floor(due * volumePerDay / reminderDemand);
+            }
+            sendNow = Math.min(sendNow, capLeft);
+            const overflow = due - sendNow;
+            if (overflow > 0) reminderCarry[rem.id] = (reminderCarry[rem.id] || 0) + overflow;
+
+            capLeft -= sendNow;
+
+            dayEntry.emails.push({
+                emailId: rem.id,
+                name: rem.name,
+                type: 'reminder',
+                volume: sendNow,
+                isFromSfmc: false,
+                condition: rem.condition,
+                parentId: rem.parentId,
+                wait: rem.wait || 0,
+                waitType: rem.waitType || 'days',
+                waitDate: rem.waitDate || ''
+            });
+        });
+
+        // ---- 2) Fill remaining cap with main sends (skip excluded days) ----
+        if (!excluded) {
             mainSends.forEach(ms => {
-                let volume = 0;
-                if (activeDay <= mainSendDays) {
-                    // Last day might be partial
-                    if (activeDay === mainSendDays) {
-                        const remaining = totalAudience - (volumePerMainSendPerDay * (mainSendDays - 1) * mainSends.length);
-                        volume = Math.ceil(remaining / mainSends.length);
-                    } else {
-                        volume = volumePerMainSendPerDay;
-                    }
+                if (capLeft <= 0) {
+                    // Still record a 0 entry so the column shows a placeholder
+                    dayEntry.emails.push({ emailId: ms.id, name: ms.name, type: 'main', volume: 0, isFromSfmc: false, condition: 'none' });
+                    return;
                 }
+                const remaining = mainRemaining[ms.id];
+                if (remaining <= 0) {
+                    dayEntry.emails.push({ emailId: ms.id, name: ms.name, type: 'main', volume: 0, isFromSfmc: false, condition: 'none' });
+                    return;
+                }
+                // This main send's fair share of the remaining cap
+                const activeMainCount = mainSends.filter(m => mainRemaining[m.id] > 0).length || 1;
+                let share = Math.min(perMainSendBase, Math.ceil(capLeft / activeMainCount));
+                let sendNow = Math.min(remaining, share, capLeft);
+
+                mainRemaining[ms.id] -= sendNow;
+                capLeft -= sendNow;
+
                 dayEntry.emails.push({
                     emailId: ms.id,
                     name: ms.name,
                     type: 'main',
-                    volume: volume,
+                    volume: sendNow,
                     isFromSfmc: false,
                     condition: 'none'
                 });
-            });
 
-            // Reminders
-            reminders.forEach(rem => {
-                const parentMainSend = mainSends.find(ms => ms.id === rem.parentId);
-                if (!parentMainSend) return;
-
-                const effWait = rem._effectiveWait || 0;
-                let volume = 0;
-                let isWaiting = false;
-
-                if (activeDay <= effWait) {
-                    // Still in wait period
-                    isWaiting = true;
-                } else {
-                    // Active reminder day
-                    const reminderActiveDay = activeDay - effWait;
-                    if (reminderActiveDay >= 1 && reminderActiveDay <= mainSendDays) {
-                        // Get the parent main send volume from that day
-                        const parentDayVolume = (reminderActiveDay === mainSendDays) ?
-                            Math.ceil((totalAudience - (volumePerMainSendPerDay * (mainSendDays - 1) * mainSends.length)) / mainSends.length) :
-                            volumePerMainSendPerDay;
-
-                        volume = calculateReminderVolume(parentDayVolume, rem.condition, openRate, clickRate);
-                    }
+                // Schedule reminders for THIS batch (fires on a future calendar date)
+                if (sendNow > 0) {
+                    reminders.filter(r => r.parentId === ms.id).forEach(rem => {
+                        let fireDate;
+                        if (rem.waitType === 'date' && rem.waitDate) {
+                            fireDate = rem.waitDate; // specific calendar date
+                        } else {
+                            fireDate = addCalendarDays(dateStr, rem.wait || 0); // wait counts calendar days
+                        }
+                        const remVol = calculateReminderVolume(sendNow, rem.condition, openRate, clickRate);
+                        scheduleReminder(fireDate, rem.id, remVol);
+                    });
                 }
-
-                dayEntry.emails.push({
-                    emailId: rem.id,
-                    name: rem.name,
-                    type: 'reminder',
-                    volume: volume,
-                    isWaiting: isWaiting,
-                    isFromSfmc: false,
-                    condition: rem.condition,
-                    parentId: rem.parentId,
-                    wait: effWait,
-                    waitType: rem.waitType || 'days',
-                    waitDate: rem.waitDate || ''
-                });
             });
+        }
+
+        // Assign a sequential day number to any day that actually has sends
+        const hasSends = dayEntry.emails.some(e => e.volume > 0);
+        if (hasSends) {
+            dayNumber++;
+            dayEntry.dayNumber = dayNumber;
         }
 
         calendar.push(dayEntry);
         currentDate.setDate(currentDate.getDate() + 1);
     }
 
+    // Trim trailing empty days (no sends at all)
+    while (calendar.length > 0 && !calendar[calendar.length - 1].emails.some(e => e.volume > 0)) {
+        calendar.pop();
+    }
+
     cadenceData = calendar;
     renderCadenceTable();
-    updateStats(calendar, mainSendDays);
+    updateStats(calendar, null);
     document.getElementById('cadenceCard').style.display = 'block';
     document.getElementById('sfmcSection').style.display = 'block';
     document.getElementById('statsBar').style.display = 'flex';
@@ -1257,14 +1324,16 @@ function applySfmcData() {
         // Recalculate reminder volumes based on actual parent data
         cadenceData.forEach(day => {
             day.emails.forEach(emailEntry => {
-                if (emailEntry.type !== 'reminder' || emailEntry.isWaiting) return;
+                if (emailEntry.type !== 'reminder') return;
 
                 const reminder = emails.find(e => e.id === emailEntry.emailId);
                 if (!reminder) return;
 
-                // Find the parent main send's day (current active day - effective wait)
-                const effWait = (emailEntry.wait !== undefined) ? emailEntry.wait : reminder.wait;
-                const parentDay = findParentDay(day, effWait);
+                // Find the parent main send's day by CALENDAR date = fireDate - wait calendar days.
+                // (Date-mode reminders can't be uniquely traced to one batch, so skip recalc for them.)
+                const waitDays = (emailEntry.wait !== undefined) ? emailEntry.wait : (reminder.wait || 0);
+                if ((emailEntry.waitType || reminder.waitType) === 'date') return;
+                const parentDay = findParentDay(day, waitDays);
                 if (!parentDay) return;
 
                 const parentEmail = parentDay.emails.find(e => e.emailId === reminder.parentId);
@@ -1299,25 +1368,12 @@ function applySfmcData() {
     }
 }
 
-function findParentDay(currentDay, effWait) {
-    // Find what active day number this current day is
-    let currentActiveDayNum = 0;
-    for (const day of cadenceData) {
-        if (!day.excluded && !day.paused) currentActiveDayNum++;
-        if (day === currentDay) break;
-    }
-    // The parent day is (currentActiveDay - effective wait)
-    const targetActiveDay = currentActiveDayNum - (effWait || 0);
-    if (targetActiveDay < 1) return null;
-
-    let count = 0;
-    for (const day of cadenceData) {
-        if (!day.excluded && !day.paused) {
-            count++;
-            if (count === targetActiveDay) return day;
-        }
-    }
-    return null;
+function findParentDay(currentDay, waitCalendarDays) {
+    // Parent batch fired (waitCalendarDays) CALENDAR days before this reminder's date.
+    const d = new Date(currentDay.dateStr + 'T00:00:00');
+    d.setDate(d.getDate() - (waitCalendarDays || 0));
+    const parentDateStr = formatDate(d);
+    return cadenceData.find(day => day.dateStr === parentDateStr) || null;
 }
 
 // ============ SAVE/LOAD ============
